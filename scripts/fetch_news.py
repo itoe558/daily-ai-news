@@ -171,6 +171,8 @@ def create_github_issue(content):
 
 ---
 
+📬 @itoe558 您的 AI 日报已送达
+
 *事实与判断区分：以上内容为 AI 聚合，仅供参考。*
 """
 
