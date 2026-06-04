@@ -31,6 +31,27 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.USER_TOKEN }}
         run: python scripts/fetch_news.py
 
+      - name: 发送邮件通知
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: smtp.gmail.com
+          server_port: 465
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: 🤖 AI资讯日报 - $(date +'%Y-%m-%d')
+          to: pcorawis@gmail.com
+          from: AI News Bot <pcorawis@gmail.com>
+          secure: true
+          body: |
+            今日 AI 资讯日报已生成！
+
+            📄 详情查看：https://github.com/itoe558/daily-ai-news/tree/master/news
+
+            💬 Issue 讨论：https://github.com/itoe558/daily-ai-news/issues
+
+            ---
+            本邮件由 GitHub Actions 自动发送
+
       - name: 提交并推送
         run: |
           git config user.name "AI News Bot"
