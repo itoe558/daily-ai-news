@@ -2,6 +2,7 @@ name: 每日 AI 资讯日报
 
 permissions:
   contents: write
+  issues: write
 
 on:
   schedule:
@@ -26,6 +27,8 @@ jobs:
           python -m pip install --upgrade pip
 
       - name: 抓取 AI 资讯
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: python scripts/fetch_news.py
 
       - name: 提交并推送

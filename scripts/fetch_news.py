@@ -95,6 +95,55 @@ def fetch_reddit_ai():
     print(f"  ✓ 获取 {len(results)} 条 Reddit AI 资讯")
     return results[:20]
 
+# ─── GitHub Issue ────────────────────────────────────────────────
+
+def create_github_issue(content):
+    """在 GitHub 仓库创建 Issue 推送日报"""
+    token = os.environ.get("GITHUB_TOKEN") or os.environ.get("INPUT_GITHUB_TOKEN")
+    repo = os.environ.get("GITHUB_REPOSITORY")
+    if not token or not repo:
+        print("  ⚠ 无 GITHUB_TOKEN 或 GITHUB_REPOSITORY，跳过 Issue 创建")
+        return False
+
+    today = date.today().isoformat()
+    weekday_map = ["一", "二", "三", "四", "五", "六", "日"]
+    weekday = weekday_map[date.today().weekday()]
+
+    body = f"""# 🤖 AI 资讯日报 — {today}（周{weekday}）
+
+> 自动聚合 · 来源：Hacker News / Reddit · 由 GitHub Actions 自动生成
+
+{content}
+
+---
+
+*事实与判断区分：以上内容为 AI 聚合，仅供参考。*
+"""
+
+    payload = json.dumps({
+        "title": f"🤖 AI 资讯日报 - {today}",
+        "body": body
+    }).encode("utf-8")
+
+    req = Request(
+        f"https://api.github.com/repos/{repo}/issues",
+        data=payload,
+        headers={
+            "Authorization": f"token {token}",
+            "Accept": "application/vnd.github+json",
+            "Content-Type": "application/json",
+            "User-Agent": "AI-News-Bot/1.0"
+        }
+    )
+    try:
+        with urlopen(req, timeout=15) as resp:
+            result = json.loads(resp.read().decode("utf-8"))
+            print(f"✅ Issue 已创建: {result.get('html_url', '')}")
+            return True
+    except Exception as e:
+        print(f"  ⚠ Issue 创建失败: {e}")
+        return False
+
 # ─── 生成 Markdown ──────────────────────────────────────────────
 
 def generate_markdown(hn_news, reddit_news):
@@ -149,6 +198,9 @@ def main():
 
     md = generate_markdown(hn, reddit)
     path = save_markdown(md)
+
+    # 在 GitHub Actions 环境也创建 Issue 推送
+    create_github_issue(md)
 
     # 输出 GitHub Actions 能用的变量
     with open(os.environ.get("GITHUB_ENV", os.devnull), "a") as f:
