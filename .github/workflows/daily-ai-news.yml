@@ -28,7 +28,7 @@ jobs:
 
       - name: 抓取 AI 资讯
         env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_TOKEN: ${{ secrets.USER_TOKEN }}
         run: python scripts/fetch_news.py
 
       - name: 提交并推送
