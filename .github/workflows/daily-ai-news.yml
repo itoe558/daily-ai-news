@@ -1,0 +1,42 @@
+name: 每日 AI 资讯日报
+
+permissions:
+  contents: write
+
+on:
+  schedule:
+    # 每天北京时间 7:00 = UTC 23:00（前一天）
+    - cron: '0 23 * * *'
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  fetch-news:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 检出仓库
+        uses: actions/checkout@v4
+
+      - name: 设置 Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+
+      - name: 抓取 AI 资讯
+        run: python scripts/fetch_news.py
+
+      - name: 提交并推送
+        run: |
+          git config user.name "AI News Bot"
+          git config user.email "bot@daily-ai-news.local"
+          git add news/
+          # 如果有新内容才提交
+          if git diff --cached --quiet; then
+            echo "没有新内容，跳过提交"
+          else
+            git commit -m "🤖 每日 AI 资讯 - $(date +'%Y-%m-%d')"
+            git push
+          fi
