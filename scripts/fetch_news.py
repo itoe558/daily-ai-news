@@ -95,6 +95,60 @@ def fetch_reddit_ai():
     print(f"  ✓ 获取 {len(results)} 条 Reddit AI 资讯")
     return results[:20]
 
+# ─── 36kr 快讯（中文源）──────────────────────────────────────────
+
+def fetch_36kr_ai_news():
+    """从 36kr 获取 AI 相关快讯"""
+    print("📡 正在获取 36氪 AI 快讯...")
+    data = fetch_json("https://36kr.com/api/newsflash?per_page=50")
+    if not data:
+        return []
+
+    ai_keywords = re.compile(
+        r"AI|人工智能|大模型|机器学习|深度学|语言模型|GPT|ChatGPT|Claude|"
+        r"OpenAI|Anthropic|Gemini|文心一言|通义千问|讯飞|智谱|"
+        r"英伟达|NVIDIA|Huang|黄仁勋|CUDA|GPU|芯片|半导体|"
+        r"自动驾驶|机器人|具身|Agent|智能体|算力|数据中|"
+        r"Copilot|GitHub Copilot|编程助手|代码生成", re.I
+    )
+
+    results = []
+    items = data.get("data", {}).get("items", [])
+    for item in items:
+        title = (item.get("title") or "").strip()
+        desc = (item.get("description") or item.get("summary") or "").strip()
+        if not title:
+            continue
+        if ai_keywords.search(title) or ai_keywords.search(desc):
+            url = item.get("url") or item.get("link") or \
+                  f"https://36kr.com/newsflashes/{item.get('id', '')}"
+            results.append({
+                "title": title,
+                "url": url,
+                "score": item.get("like_count", item.get("recommend", 0)),
+                "source": "36氪",
+                "desc": desc[:120] + "..." if len(desc) > 120 else desc
+            })
+
+    # 也搜一下热门文章
+    hot = fetch_json("https://36kr.com/api/newsflash?per_page=10&type=hot")
+    if hot:
+        for item in hot.get("data", {}).get("items", []):
+            title = (item.get("title") or "").strip()
+            if title and ai_keywords.search(title):
+                if not any(r["title"] == title for r in results):
+                    results.append({
+                        "title": title,
+                        "url": f"https://36kr.com/newsflashes/{item.get('id', '')}",
+                        "score": item.get("like_count", 0),
+                        "source": "36氪",
+                        "desc": (item.get("description") or "")[:120]
+                    })
+
+    results.sort(key=lambda x: x["score"], reverse=True)
+    print(f"  ✓ 获取 {len(results)} 条 36氪 AI 资讯")
+    return results[:20]
+
 # ─── GitHub Issue ────────────────────────────────────────────────
 
 def create_github_issue(content):
@@ -111,7 +165,7 @@ def create_github_issue(content):
 
     body = f"""# 🤖 AI 资讯日报 — {today}（周{weekday}）
 
-> 自动聚合 · 来源：Hacker News / Reddit · 由 GitHub Actions 自动生成
+> 自动聚合 · 来源：36氪 / Hacker News / Reddit · 由 GitHub Actions 自动生成
 
 {content}
 
@@ -146,20 +200,31 @@ def create_github_issue(content):
 
 # ─── 生成 Markdown ──────────────────────────────────────────────
 
-def generate_markdown(hn_news, reddit_news):
+def generate_markdown(hn_news, reddit_news, cn_news):
     today = date.today().isoformat()
     weekday_map = ["一", "二", "三", "四", "五", "六", "日"]
     weekday = weekday_map[date.today().weekday()]
 
+    sources = ["36氪", "Hacker News", "Reddit"]
     lines = [
         f"# 🤖 AI 资讯日报 — {today}（周{weekday}）\n",
-        "> 自动聚合 · 每天 7:00 更新 · 来源：Hacker News / Reddit\n",
+        f"> 自动聚合 · 每天 7:00 更新 · 来源：{' / '.join(sources)}\n",
         "---\n"
     ]
 
+    # ── 中文（36氪）──
+    if cn_news:
+        lines.append("## 🇨🇳 国内 AI 动态\n")
+        for i, n in enumerate(cn_news[:12], 1):
+            lines.append(f"### {i}. [{n['title']}]({n['url']})")
+            if n.get("desc"):
+                lines.append(f"*{n['desc']}*\n")
+            else:
+                lines.append("")
+
     # ── HN ──
     if hn_news:
-        lines.append("## 🔥 Hacker News 热门 AI 话题\n")
+        lines.append("## 🌍 国际 AI 热点\n")
         for i, n in enumerate(hn_news[:15], 1):
             lines.append(f"### {i}. [{n['title']}]({n['url']})")
             lines.append(f"*{n['desc']}*\n")
@@ -195,8 +260,9 @@ def main():
 
     hn = fetch_hn_ai_stories()
     reddit = fetch_reddit_ai()
+    cn = fetch_36kr_ai_news()
 
-    md = generate_markdown(hn, reddit)
+    md = generate_markdown(hn, reddit, cn)
     path = save_markdown(md)
 
     # 在 GitHub Actions 环境也创建 Issue 推送
@@ -207,7 +273,7 @@ def main():
         f.write(f"NEWS_FILE={path}\n")
 
     print(f"\n📄 生成完成: {path}")
-    print(f"   共 {len(hn) + len(reddit)} 条资讯")
+    print(f"   共 {len(hn) + len(reddit) + len(cn)} 条资讯")
 
 if __name__ == "__main__":
     main()
